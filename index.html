@@ -1,0 +1,710 @@
+<!doctype html>
+<html lang="fr-CA">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#121212">
+<title>Console PoZé</title>
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#121212; --panel:#1e1e1e; --panel2:#2a2a2a; --line:#3a3a3a;
+  --txt:#f4f4f4; --dim:#b5b5b5; --accent:#4fc3f7; --ok:#43d17a;
+  --mute:#ff5252; --solo:#ffd54f; --warn:#ffb74d;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--txt);font:17px/1.35 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{padding-bottom:calc(76px + env(safe-area-inset-bottom))}
+button,select,input{font:inherit;color:inherit}
+button{background:var(--panel2);border:2px solid var(--line);border-radius:12px;min-height:48px;padding:6px 14px;cursor:pointer}
+button:active{filter:brightness(1.3)}
+button.on{background:var(--ok);border-color:var(--ok);color:#000;font-weight:700}
+button.m.on{background:var(--mute);border-color:var(--mute);color:#000}
+button.s.on{background:var(--solo);border-color:var(--solo);color:#000}
+button.big{min-height:60px;font-size:20px;font-weight:700}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:8px 12px 6px;border-bottom:1px solid var(--line)}
+.row{display:flex;gap:8px;align-items:center}
+#conn{flex:1;font-weight:700;text-align:left}
+#conn .dot{display:inline-block;width:14px;height:14px;border-radius:50%;background:var(--mute);margin-right:8px;vertical-align:-1px}
+#conn.ok .dot{background:var(--ok)}
+#conn.wait .dot{background:var(--warn)}
+#lock{width:56px;font-size:22px}
+#lock.on{background:var(--mute);border-color:var(--mute)}
+body.locked main .ctl, body.locked main button:not(.nolock){opacity:.45;pointer-events:none}
+#mixes{display:flex;gap:6px;overflow-x:auto;margin-top:8px;scrollbar-width:none}
+#mixes button{flex:0 0 auto;min-width:64px;font-weight:700}
+#mixes button.sel{background:var(--accent);border-color:var(--accent);color:#000}
+main{padding:10px 12px}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:5;display:flex;background:#0b0b0b;border-top:1px solid var(--line);padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:none;background:none;min-height:58px;font-size:14px;color:var(--dim);padding:2px}
+nav button b{display:block;font-size:22px}
+nav button.sel{color:var(--accent);font-weight:700}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:10px}
+h2{font-size:20px;margin:6px 0 10px}
+h3{font-size:17px;margin:14px 0 6px;color:var(--dim);font-weight:600}
+.strip{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+.strip .nm{font-size:19px;font-weight:700;background:none;border:none;text-align:left;padding:0;min-height:0;display:flex;align-items:center;gap:8px;overflow:hidden;white-space:nowrap}
+.strip .nm small{color:var(--dim);font-weight:400;font-size:14px}
+.strip .nm .chev{color:var(--accent);font-size:22px;margin-left:auto}
+.strip button.m,.strip button.s{width:54px;padding:0;font-weight:800}
+.strip .sl{grid-column:1 / -1}
+.meter{height:8px;border-radius:4px;background:#000;overflow:hidden;margin:6px 0 2px;grid-column:1 / -1}
+.meter i{display:block;height:100%;width:0;background:linear-gradient(90deg,#2e7d32 0 60%,#f9a825 60% 85%,#e53935 85%);background-size:var(--mw,100%) 100%;transition:width .06s linear}
+.meter.clip{outline:2px solid var(--mute)}
+/* slider : glisser à gauche/droite (un simple toucher ne change rien) */
+.slw{display:flex;align-items:center;gap:6px}
+.slw .pm{width:48px;flex:0 0 48px;padding:0;font-size:24px;font-weight:700}
+.sl{position:relative;flex:1;height:52px;border-radius:12px;background:#000;border:2px solid var(--line);touch-action:pan-y;overflow:hidden;user-select:none}
+.sl .fill{position:absolute;left:0;top:0;bottom:0;background:#1565c0}
+.sl.ctr .fill{background:#6a1b9a}
+.sl .zero{position:absolute;top:0;bottom:0;width:2px;background:#fff8}
+.sl .val{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 12px;font-weight:700;pointer-events:none;text-shadow:0 1px 2px #000}
+.sl .val span:first-child{color:#ddd;font-weight:500}
+.sl.drag{border-color:var(--accent)}
+.lbl{font-size:15px;color:var(--dim);margin:8px 0 2px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+#sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow-y:auto;padding:0 12px 30px;display:none}
+#sheet.open{display:block}
+#sheet .top{position:sticky;top:0;background:var(--bg);padding:10px 0;display:flex;gap:10px;align-items:center;z-index:2;border-bottom:1px solid var(--line)}
+#sheet .top h2{margin:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+input[type=text]{background:#000;border:2px solid var(--line);border-radius:12px;min-height:52px;padding:6px 12px;font-size:20px;width:100%;text-transform:uppercase}
+select{background:#000;border:2px solid var(--line);border-radius:12px;min-height:52px;padding:6px 10px;font-size:18px;width:100%}
+.note{color:var(--dim);font-size:15px}
+.warn{background:#3a2a00;border:1px solid var(--warn);color:#ffe0a8;border-radius:12px;padding:10px;font-size:15px;margin-bottom:10px}
+.scn{min-height:84px;font-size:30px;font-weight:800}
+.scn.act{outline:4px solid var(--ok)}
+.save .scn{border-color:var(--mute)}
+#log{font:13px/1.4 ui-monospace,Consolas,monospace;background:#000;border-radius:10px;padding:8px;max-height:55vh;overflow:auto;white-space:pre-wrap;word-break:break-all}
+#log .tx{color:#90caf9}#log .rx{color:#a5d6a7}#log .er{color:#ff8a80}
+#toast{position:fixed;left:12px;right:12px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:30;background:#333;border:1px solid #666;border-radius:12px;padding:12px;font-weight:600;display:none}
+#toast.show{display:block}
+.hide{display:none!important}
+details summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+@media (min-width:760px){
+  #chlist{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  #chlist .card{margin:0}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="row">
+    <button id="conn" class="nolock"><span class="dot"></span><span id="connTxt">Se connecter à la console</span></button>
+    <button id="lock" class="nolock" title="Verrouiller">🔓</button>
+  </div>
+  <div id="mixes"></div>
+</header>
+
+<main>
+  <section id="v-ch"><div id="hint" class="warn">Avant de te connecter : Mathieu <b>ferme L-20 Control</b> sur son iPad (la console accepte un seul appareil à la fois). Ensuite, touche le bouton en haut.</div><div id="chlist"></div></section>
+
+  <section id="v-fx" class="hide"></section>
+
+  <section id="v-sc" class="hide">
+    <div class="warn">Avant de tester : sauvegarde une scène de secours (ex. la 9). Si quelque chose tourne mal, tu la rappelles.</div>
+    <div class="grid2" style="margin-bottom:12px">
+      <button id="scR" class="big on">Rappeler</button>
+      <button id="scS" class="big">Sauvegarder</button>
+    </div>
+    <div id="scGrid" class="grid3"></div>
+    <p class="note" id="scInfo">Touche un numéro pour <b>rappeler</b> la scène.</p>
+  </section>
+
+  <section id="v-ms" class="hide"></section>
+
+  <section id="v-lg" class="hide">
+    <div class="card">
+      <div class="grid2">
+        <button id="lgDump">Relire la console</button>
+        <button id="lgCopy">Copier le journal</button>
+        <button id="lgClear">Effacer</button>
+        <button id="lgMeters">VU dans le journal : non</button>
+      </div>
+      <p class="note">Le journal montre ce qui passe entre l'app et la console. Bouge <b>un seul</b> réglage sur la console et regarde la ligne qui arrive.</p>
+    </div>
+    <div id="log"></div>
+    <details class="card" style="margin-top:10px">
+      <summary>Avancé : envoyer un message brut</summary>
+      <p class="note">Pour le décodage seulement, avec Claude. Ex. : <code>B0 30 01</code></p>
+      <input type="text" id="raw" placeholder="B0 30 01" style="text-transform:none">
+      <button id="rawSend" style="margin-top:8px;width:100%">Envoyer</button>
+    </details>
+    <p class="note" style="margin-top:16px">Basé sur le travail ouvert de tecs/zoom-l20-control (MIT), grischa2211/L20R-Controller-Performance-Mixer et PimDoos/zoom-L20-control (Apache-2.0), et la doc de LagZeppelin/livetrak-l20-web. Pas une app officielle Zoom. Voir LICENCES.md.</p>
+  </section>
+</main>
+
+<nav>
+  <button data-v="ch" class="sel"><b>🎚️</b>Canaux</button>
+  <button data-v="fx"><b>✨</b>Effets</button>
+  <button data-v="sc"><b>🎬</b>Scènes</button>
+  <button data-v="ms"><b>🔊</b>Master</button>
+  <button data-v="lg"><b>📝</b>Journal</button>
+</nav>
+
+<div id="sheet"></div>
+<div id="toast"></div>
+
+<script>
+"use strict";
+/* ====================================================================
+   Console PoZé : contrôle Zoom LiveTrak L-20 / L-20R par Bluetooth (BTA-1)
+   Code écrit pour PoZé. Le protocole vient des projets ouverts cités dans
+   LICENCES.md (tecs/zoom-l20-control MIT ; grischa2211 et PimDoos Apache-2.0).
+   ==================================================================== */
+
+const SVC = "03b80e5a-ede8-4b33-a751-6ce34ec4c700";   // BLE-MIDI
+const CHR = "7772e5db-3868-4112-a1a9-f2669d106bf3";
+const DUMP_LEN = 656;
+const NSTRIP = 18;           // 16 mono + 17/18 + 19/20
+const MIXDEF = ["MAIN","A","B","C","D","E","F"];
+const FX1 = ["Hall 1","Hall 2","Room 1","Plate","Church","DrumAmb","GateRev","Vocal 1","Vocal 2","Vocal 3"];
+const FX2 = ["Hall 3","Room 2","Spring","Delay","Analog","P-P Delay","Vocal 4","Chorus 1","Chorus 2","Cho+Dly"];
+
+/* ---------- petites aides ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const hex = a => Array.from(a, b => b.toString(16).padStart(2,"0").toUpperCase()).join(" ");
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const store = {
+  get(k, d){ try{ const v = localStorage.getItem("pozeL20."+k); return v==null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem("pozeL20."+k, JSON.stringify(v)); }catch(e){} }
+};
+function interp(pts, x){           // interpolation linéaire par morceaux
+  if (x <= pts[0][0]) return pts[0][1];
+  for (let i=1;i<pts.length;i++) if (x <= pts[i][0]){
+    const [x0,y0]=pts[i-1],[x1,y1]=pts[i]; return y0 + (y1-y0)*(x-x0)/(x1-x0);
+  }
+  return pts[pts.length-1][1];
+}
+function interpLog(pts, x){ return Math.exp(interp(pts.map(p=>[p[0],Math.log(p[1])]), x)); }
+const stripLabel = s => s<16 ? String(s+1) : (s===16 ? "17/18" : "19/20");
+const stripNum1 = s => s<16 ? s+1 : (s===16 ? 17 : 19);   // numéro pour le renommage
+const defaultName = s => s===16 ? "PIANO" : s===17 ? "SAMPLES" : "CH "+(s+1);
+
+/* ---------- formats d'affichage ---------- */
+const FMT = {
+  fader: v => v===0 ? "−∞" : fmtDb(interp([[1,-70],[8,-40],[27,-20],[45,-10],[82,0],[120,10]], v)),
+  pan: v => v===50 ? "Centre" : v<50 ? "G "+(50-v) : "D "+(v-50),
+  eq: v => fmtDb((v-30)/2),
+  midF: v => fmtHz(interpLog([[0,100],[16,200],[37,497],[53,1017],[76,3065],[96,8000]], v)),
+  lowCut: v => v===0 ? "Off" : fmtHz(interpLog([[1,40],[11,60],[24,101.4],[37,204.9],[49,403.9],[56,600]], v)),
+  fxSend: v => v===0 ? "−∞" : v>=45 ? fmtDb((v-45)*10/15) : "niveau "+v+" (0 dB = 45)",
+  raw: v => String(v),
+};
+function fmtDb(d){ const r = Math.round(d*2)/2; return (r>0?"+":"")+(r===0?"0":r.toFixed(Math.abs(r)<10&&r%1?1:0)).replace(".",",")+" dB"; }
+function fmtHz(f){ return f>=1000 ? (Math.round(f/100)/10).toString().replace(".",",")+" kHz" : Math.round(f)+" Hz"; }
+
+/* ====================================================================
+   CARTE DU PROTOCOLE : chaque réglage = une clé, un CC, une place dans l'état
+   ==================================================================== */
+const P = {};       // clé -> définition
+const REV = {};     // (status<<8 | ctrl) -> {k, part}
+const V = {};       // clé -> valeur actuelle
+const NAMES = Array.from({length:NSTRIP}, (_,s)=>defaultName(s));
+let activeScene = null;
+
+function def(k, o){
+  P[k] = Object.assign({min:0, max:127, fmt:"raw"}, o);
+  if (o.st != null){
+    if (o.lsb != null){ REV[(o.st<<8)|o.cc] = {k, part:"msb"}; REV[(o.lsb<<8)|o.cc] = {k, part:"lsb"}; }
+    else REV[(o.st<<8)|o.cc] = {k, part:"v"};
+  }
+  V[k] = o.init != null ? o.init : 0;
+}
+(function build(){
+  const GRID = 171;
+  // [nom, index dans la grille, CC de base, max, format, valeur de départ]
+  const PER = [
+    ["rec",1,0x08,2,"raw",0], ["mute",2,0x30,1,"raw",0], ["solo",3,0x32,1,"raw",0],
+    ["phase",4,0x0a,1,"raw",0], ["pan",5,0x0c,100,"pan",50], ["eqOff",6,0x0e,1,"raw",0],
+    ["eqHi",7,0x14,60,"eq",30], ["eqMidF",8,0x18,96,"midF",53], ["eqMid",9,0x1a,60,"eq",30],
+    ["eqLo",10,0x2c,60,"eq",30], ["lowCut",11,0x2e,56,"lowCut",0],
+    ["fx1",12,0x34,60,"fxSend",0], ["fx2",13,0x36,60,"fxSend",0],
+  ];
+  for (let s=0;s<NSTRIP;s++){
+    const ch = s<16 ? s : (s-16)*2, odd = s<16 ? 0 : 1, st = 0xb0|ch;
+    def(`s${s}.color`, {dump: GRID + s});
+    for (const [n,i,cc,max,fmt,init] of PER)
+      def(`s${s}.${n}`, {st, cc:cc+odd, max, fmt, init, dump: GRID + i*18 + s, center: fmt==="pan"?50:fmt==="eq"?30:null});
+    for (let m=0;m<7;m++)
+      def(`s${s}.send${m}`, {st, cc:0x3c+2*m+odd, max:120, fmt:"fader", dump: GRID + (14+m)*18 + s, zero:82});
+  }
+  for (let i=0;i<2;i++){
+    def(`fx${i}.effect`, {st:0xb0+i, cc:0x4e, max:9, dump:549+i});
+    def(`fx${i}.tone`,  {st:0xb4+2*i, lsb:0xb5+2*i, cc:0x4e, max:1023, dump:551+2*i, cc14:true});
+    def(`fx${i}.decay`, {st:0xbc+2*i, lsb:0xbd+2*i, cc:0x4e, max:255,  dump:555+2*i, cc14:true});
+    def(`fx${i}.mute`,  {st:0xb4+i, cc:0x50, max:1, dump:559+i});
+    for (let m=0;m<7;m++){
+      const slot = 12 + 4*m + i;
+      def(`fx${i}.send${m}`, {st:0xb0|(slot&15), cc:0x50+(slot>>4), max:120, fmt:"fader", dump:563+i+2*m, zero:82});
+    }
+  }
+  def("master.level", {st:0xba, cc:0x54, max:120, fmt:"fader", dump:579, zero:82});
+  def("master.mute",  {st:0xb9, cc:0x54, max:1});
+  for (let i=0;i<6;i++) def(`mon${i}`, {st:0xb0+i, cc:0x53, max:118, fmt:"fader", dump:580+i, zero:82});
+  def("geq.on", {st:0xbf, cc:0x55, max:1, dump:586});
+  for (let b=0;b<15;b++) def(`geq${b}`, {st:0xb0+b, cc:0x55, max:60, fmt:"eq", dump:587+b, init:30, center:30});
+})();
+
+/* ====================================================================
+   BLUETOOTH (BLE-MIDI)
+   ==================================================================== */
+let dev=null, chr=null, demo=false, connected=false;
+const pendingCC = new Map();    // dernière valeur à envoyer par réglage (évite l'embouteillage)
+const pendingSys = [];
+let pumping = false;
+
+async function connect(){
+  if (connected){ disconnect(); return; }
+  if (!navigator.bluetooth){
+    toast("Ce navigateur n'a pas le Bluetooth web. Ouvre la page dans Chrome sur Android.");
+    if (confirm("Pas de Bluetooth ici. Ouvrir le mode démo (sans console) ?")) startDemo();
+    return;
+  }
+  try{
+    setConn("wait","Choisis « L-20… » dans la liste");
+    dev = await navigator.bluetooth.requestDevice({
+      filters:[{namePrefix:"L-20"},{services:[SVC]}], optionalServices:[SVC]
+    });
+    dev.addEventListener("gattserverdisconnected", onDisc);
+    setConn("wait","Connexion à "+(dev.name||"la console")+"…");
+    const srv = await dev.gatt.connect();
+    const svc = await srv.getPrimaryService(SVC);
+    chr = await svc.getCharacteristic(CHR);
+    await chr.startNotifications();
+    chr.addEventListener("characteristicvaluechanged", e => onPacket(new Uint8Array(e.target.value.buffer)));
+    connected = true; demo = false;
+    setConn("ok","Connecté : "+(dev.name||"L-20"));
+    log("ok", "Connecté à "+(dev.name||"?"));
+    // poignée de main : identité, état complet, liste des scènes, VU-mètres
+    sendSys([0xf0,0x7e,0x00,0x06,0x01,0xf7]);
+    sendSys([0xf0,0x52,0x00,0x00,0x2b,0xf7]);
+    sendSys([0xf0,0x52,0x00,0x00,0x07,0x00,0xf7]);
+    sendSys([0xf0,0x52,0x00,0x00,0x50,0xf7]);
+    meterSelect();
+    wake();
+  }catch(e){
+    log("er", "Connexion : "+e.message);
+    setConn("", "Se connecter à la console");
+    if (String(e.message).match(/cancel|annul/i)) return;
+    toast("Pas réussi. Vérifie : l'iPad de Mathieu a fermé L-20 Control ? Le Bluetooth du cell est ouvert ?");
+  }
+}
+function disconnect(){
+  if (demo){ demo=false; connected=false; clearInterval(demoTimer); setConn("","Se connecter à la console"); return; }
+  try{ sendSys([0xf0,0x52,0x00,0x00,0x51,0xf7]); }catch(e){}
+  setTimeout(()=>{ try{ dev && dev.gatt.disconnect(); }catch(e){} }, 200);
+}
+function onDisc(){
+  connected=false; chr=null;
+  setConn("","Déconnecté. Toucher pour reconnecter");
+  log("er","Déconnecté");
+}
+function hint(){ const h=$("#hint"); if(h) h.classList.toggle("hide", connected); }
+function setConn(cls, txt){ setTimeout(hint,0); const b=$("#conn"); b.className="nolock "+cls; $("#connTxt").textContent=txt; }
+
+/* --- envoi --- */
+function sendCC(st, cc, v){ pendingCC.set((st<<8)|cc, v); pump(); }
+function sendSys(bytes){ pendingSys.push(bytes); pump(); }
+function packetsForSysex(sx){            // découpe en paquets BLE-MIDI de 20 octets
+  const out=[]; let i=0;
+  while (i < sx.length){
+    const p=[0x80]; if (i===0) p.push(0x80);
+    while (i < sx.length && p.length < 20){
+      if (sx[i]===0xf7){ if (p.length <= 18){ p.push(0x80, 0xf7); i++; } break; }
+      p.push(sx[i++]);
+    }
+    out.push(Uint8Array.from(p));
+  }
+  return out;
+}
+async function writePkt(p){
+  if (demo || !chr){ return; }
+  if (chr.writeValueWithoutResponse) await chr.writeValueWithoutResponse(p);
+  else await chr.writeValue(p);
+}
+async function pump(){
+  if (pumping) return; pumping = true;
+  try{
+    while (pendingSys.length || pendingCC.size){
+      if (pendingSys.length){
+        const sx = pendingSys.shift();
+        log("tx", hex(sx));
+        for (const p of packetsForSysex(sx)) await writePkt(p);
+      } else {
+        const [key, v] = pendingCC.entries().next().value; pendingCC.delete(key);
+        const st = key>>8, cc = key&255;
+        log("tx", hex([st,cc,v]) + describe(st,cc,v));
+        await writePkt(Uint8Array.from([0x80,0x80,st,cc,v]));
+      }
+    }
+  }catch(e){ log("er","Envoi : "+e.message); }
+  pumping = false;
+}
+
+/* --- réception --- */
+let sx=null, runSt=0;
+function onPacket(p){
+  let i=1;                               // p[0] = en-tête
+  while (i < p.length){
+    const b = p[i];
+    if (sx){
+      if (b & 0x80){
+        if (p[i+1]===0xf7){ sx.push(0xf7); onSysex(sx); sx=null; i+=2; continue; }
+        if (b===0xf7){ sx.push(0xf7); onSysex(sx); sx=null; i++; continue; }
+        i++; continue;                   // octet d'horodatage au milieu
+      }
+      sx.push(b); i++; continue;
+    }
+    if (b & 0x80){                       // horodatage, puis statut (ou statut courant)
+      i++; if (i>=p.length) break;
+      const s = p[i];
+      if (s===0xf0){ sx=[0xf0]; i++; continue; }
+      if (s & 0x80){ runSt=s; i++; }
+      continue;
+    }
+    if ((runSt & 0xf0)===0xb0){
+      if (i+1 >= p.length) break;
+      onCC(runSt, p[i], p[i+1]); i+=2;
+    } else i++;
+  }
+}
+function onCC(st, cc, v){
+  const r = REV[(st<<8)|cc];
+  if (r){
+    const old = V[r.k];
+    if (r.part==="v") V[r.k]=v;
+    else if (r.part==="msb") V[r.k] = (v<<7) | (old & 127);
+    else V[r.k] = (old & ~127) | v;
+    log("rx", hex([st,cc,v]) + "  → " + r.k + " = " + V[r.k]);
+    refresh(r.k);
+  } else {
+    log("rx", hex([st,cc,v]) + "  (inconnu)");
+  }
+}
+let logMeters=false;
+function onSysex(b){
+  if (b[1]===0x52 && b[4]===0x31 && b[5]===0x04){ onMeters(b); if (logMeters) log("rx", hex(b)); return; }
+  log("rx", hex(b.length>40 ? b.slice(0,40) : b) + (b.length>40 ? " … ("+b.length+" octets)" : ""));
+  if (b[1]===0x7e && b[4]===0x02){ toast("Console reconnue (firmware "+String.fromCharCode(...b.slice(10,14))+")"); return; }
+  if (b[1]!==0x52) return;
+  const cmd=b[4];
+  if (cmd===0x2a){ loadDump(b); return; }
+  if (cmd===0x08 && b[5]===0x00){ sendSys([0xf0,0x52,0x00,0x00,0x2b,0xf7]); return; }   // scène rappelée → relire
+  if (cmd===0x32 && b[5]===0x00){ if (b[6]===0x01){ activeScene=b[7]; renderScenes(); } else toast("Scène "+b[7]+" sauvegardée ✅"); return; }
+}
+let nameCheck=null;
+function loadDump(d){
+  if (d.length !== DUMP_LEN){ log("er","État reçu de "+d.length+" octets (attendu "+DUMP_LEN+") : ignoré"); return; }
+  for (let s=0;s<NSTRIP;s++){
+    const bytes = Array.from(d.slice(9+s*9, 18+s*9)).filter(x=>x>0 && x<128);
+    const n = String.fromCharCode(...bytes).trim();
+    NAMES[s] = n || defaultName(s);
+  }
+  for (const k in P){
+    const o=P[k]; if (o.dump==null) continue;
+    V[k] = o.cc14 ? (d[o.dump]<<7)|d[o.dump+1] : d[o.dump];
+  }
+  log("ok","État de la console chargé");
+  renderAll();
+  if (nameCheck){
+    const {s, name} = nameCheck; nameCheck=null;
+    if (NAMES[s].toUpperCase()===name.toUpperCase()) toast("Nom changé sur la console ✅ "+name);
+    else toast("La console n'a pas pris le nom ❌ (elle dit : "+NAMES[s]+"). Envoie-moi le journal.");
+  }
+}
+/* --- VU-mètres --- */
+const meter = new Array(64).fill(0);
+let meterDirty=false;
+function onMeters(b){ for (let i=0;i<57 && i<b.length;i++) meter[i]=b[i]; if(!meterDirty){ meterDirty=true; requestAnimationFrame(drawMeters);} }
+function meterOf(byte){ return {lvl: Math.min(10, byte & 0x0f), clip: !!(byte & 0x20)}; }
+function stripMeter(s){
+  if (s<16) return meterOf(meter[7+s]);
+  const a=meterOf(meter[7+16+(s-16)*2]), c=meterOf(meter[8+16+(s-16)*2]);
+  return {lvl:Math.max(a.lvl,c.lvl), clip:a.clip||c.clip};
+}
+function drawMeters(){
+  meterDirty=false;
+  document.querySelectorAll(".meter[data-s]").forEach(el=>{
+    const s=el.dataset.s;
+    const m = s==="L" ? meterOf(meter[55]) : s==="R" ? meterOf(meter[56]) : stripMeter(+s);
+    const w = m.lvl*10;
+    el.firstChild.style.width = w+"%";
+    el.firstChild.style.setProperty("--mw", w ? (10000/w)+"%" : "100%");
+    el.classList.toggle("clip", m.clip);
+  });
+}
+function meterSelect(){ sendCC(0xb5, 0x57, mix); }   // VU-mètres du mix affiché
+
+/* --- décrire un message envoyé (pour le journal) --- */
+function describe(st,cc,v){ const r=REV[(st<<8)|cc]; return r ? "  → "+r.k+" = "+v : ""; }
+
+/* ====================================================================
+   ACTIONS
+   ==================================================================== */
+function setVal(k, v){
+  if (locked) return;
+  const o=P[k]; v = clamp(Math.round(v), o.min, o.max);
+  if (V[k]===v) return;
+  V[k]=v; refresh(k);
+  if (o.st==null) return;
+  if (o.cc14){ sendCC(o.st, o.cc, (v>>7)&127); sendCC(o.lsb, o.cc, v&127); }
+  else sendCC(o.st, o.cc, v);
+}
+function toggle(k){ setVal(k, V[k] ? 0 : 1); }
+function pressButton(index){       // « boutons » de la console : CC 56/57 valeur 03
+  const st = 0xb0 | (index & 15), cc = 0x56 + (index >> 4);
+  pendingCC.delete((st<<8)|cc);
+  sendCC(st, cc, 3);
+}
+function renameStrip(s, raw){
+  const name = raw.normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^\x20-\x7e]/g,"").toUpperCase().slice(0,8).trim();
+  if (!name){ toast("Il faut au moins une lettre (sans accents)."); return; }
+  const bytes = Array.from(name, c=>c.charCodeAt(0)); while (bytes.length<9) bytes.push(0);
+  sendSys([0xf0,0x52,0x00,0x00,0x31,0x02, stripNum1(s), 0x09,0x00, ...bytes, 0xf7]);
+  if (demo){ NAMES[s]=name; renderAll(); toast("(démo) Nom changé : "+name); return; }
+  nameCheck = {s, name};
+  setTimeout(()=>sendSys([0xf0,0x52,0x00,0x00,0x2b,0xf7]), 400);   // relire pour vérifier
+}
+
+/* ====================================================================
+   INTERFACE
+   ==================================================================== */
+let mix = 0, view = "ch", locked=false, sheetStrip=null, sceneSave=false;
+const mixNames = store.get("mixNames", MIXDEF.slice());
+const mixName = m => mixNames[m] || MIXDEF[m];
+
+function slider(k, label){
+  const o=P[k]; const isC = o.center!=null;
+  return `<div class="lbl">${label}</div>
+  <div class="slw ctl"><button class="pm" data-step="${k}" data-d="-1">−</button>
+  <div class="sl${isC?" ctr":""}" data-k="${k}"><div class="fill"></div>${o.zero||isC?`<div class="zero" style="left:${100*(o.zero??o.center)/o.max}%"></div>`:""}<div class="val"><span></span><span></span></div></div>
+  <button class="pm" data-step="${k}" data-d="1">+</button></div>`;
+}
+function tbtn(k, txt, cls="", invert=false){
+  return `<button class="ctl ${cls}" data-t="${k}"${invert?' data-inv="1"':""}>${txt}</button>`;
+}
+function paintSlider(el){
+  const k=el.dataset.k, o=P[k], v=V[k], pct=100*(v-o.min)/(o.max-o.min);
+  const f=el.firstChild;
+  if (o.center!=null){
+    const c=100*o.center/o.max; f.style.left=Math.min(c,pct)+"%"; f.style.width=Math.abs(pct-c)+"%";
+  } else { f.style.left="0"; f.style.width=pct+"%"; }
+  const sp=el.querySelectorAll(".val span");
+  sp[1].textContent = FMT[o.fmt](v);
+}
+function refresh(k){
+  document.querySelectorAll(`[data-k="${k}"]`).forEach(paintSlider);
+  document.querySelectorAll(`[data-t="${k}"]`).forEach(b=>b.classList.toggle("on", b.dataset.inv ? !V[k] : !!V[k]));
+  if (k.startsWith("fx") && k.endsWith(".effect")) document.querySelectorAll(`select[data-sel="${k}"]`).forEach(s=>s.value=V[k]);
+}
+
+function renderMixes(){
+  $("#mixes").innerHTML = MIXDEF.map((_,m)=>`<button class="nolock${m===mix?" sel":""}" data-mix="${m}">${esc(mixName(m))}</button>`).join("");
+}
+function renderChannels(){
+  let h="";
+  for (let s=0;s<NSTRIP;s++){
+    h += `<div class="card"><div class="strip">
+      <button class="nm nolock" data-open="${s}"><small>${stripLabel(s)}</small>${esc(NAMES[s])}<span class="chev">›</span></button>
+      ${tbtn(`s${s}.mute`,"M","m")}${tbtn(`s${s}.solo`,"S","s")}
+      <div class="meter" data-s="${s}"><i></i></div>
+      <div class="sl-wrap" style="grid-column:1/-1">${slider(`s${s}.send${mix}`, mix===0?"Volume (main)":"Dans le retour "+esc(mixName(mix)))}</div>
+    </div></div>`;
+  }
+  for (let i=0;i<2;i++){
+    h += `<div class="card"><div class="strip">
+      <button class="nm nolock" data-goto="fx"><small>RET</small>FX${i+1} : ${esc((i?FX2:FX1)[V[`fx${i}.effect`]]||"?")}<span class="chev">›</span></button>
+      ${tbtn(`fx${i}.mute`,"M","m")}<span></span>
+      <div style="grid-column:1/-1">${slider(`fx${i}.send${mix}`, "Retour d'effet "+(mix===0?"(main)":"dans "+esc(mixName(mix))))}</div>
+    </div></div>`;
+  }
+  $("#chlist").innerHTML = h;
+}
+function renderFx(){
+  let h="";
+  for (let i=0;i<2;i++){
+    const list = i?FX2:FX1;
+    h += `<div class="card"><h2>Effet ${i+1}</h2>
+      <div class="lbl">Type d'effet</div>
+      <select class="ctl" data-sel="fx${i}.effect">${list.map((n,j)=>`<option value="${j}">${n}</option>`).join("")}</select>
+      ${slider(`fx${i}.tone`, "Réglage 1 (ex. Tone / Time)")}
+      ${slider(`fx${i}.decay`, "Réglage 2 (ex. Decay / Rate)")}
+      ${slider(`fx${i}.send${mix}`, "Retour "+(mix===0?"dans le main":"dans "+esc(mixName(mix))))}
+      <div style="margin-top:10px">${tbtn(`fx${i}.mute`,"Mute effet "+(i+1),"m")}</div>
+    </div>`;
+  }
+  h += `<p class="note">Pour envoyer un canal dans l'effet : Canaux → touche le nom du canal → « Effets ».</p>`;
+  $("#v-fx").innerHTML=h;
+  document.querySelectorAll("select[data-sel]").forEach(s=>s.value=V[s.dataset.sel]);
+}
+function renderScenes(){
+  $("#scGrid").innerHTML = [1,2,3,4,5,6,7,8,9].map(n=>`<button class="scn ctl${activeScene===n?" act":""}" data-scn="${n}">${n}</button>`).join("");
+  $("#v-sc").classList.toggle("save", sceneSave);
+  $("#scR").classList.toggle("on", !sceneSave); $("#scS").classList.toggle("on", sceneSave);
+  $("#scS").classList.toggle("m", sceneSave);
+  $("#scInfo").innerHTML = sceneSave ? "Touche un numéro pour <b>sauvegarder</b> le son actuel dedans (on te demande de confirmer)." : "Touche un numéro pour <b>rappeler</b> la scène.";
+}
+function renderMaster(){
+  let h = `<div class="card"><h2>Master</h2>
+    <div class="meter" data-s="L"><i></i></div><div class="meter" data-s="R"><i></i></div>
+    ${slider("master.level","Volume master")}
+    <div style="margin-top:10px">${tbtn("master.mute","Mute master","m")}</div></div>
+    <div class="card"><h2>Sorties des retours</h2>`;
+  for (let i=0;i<6;i++) h += slider(`mon${i}`, "Sortie "+esc(mixName(i+1)));
+  h += `</div><details class="card"><summary>Noms des retours (sur ce cell seulement)</summary>`;
+  for (let m=1;m<7;m++) h += `<div class="lbl">Retour ${MIXDEF[m]}</div><input type="text" style="text-transform:none" data-mixname="${m}" value="${esc(mixName(m))}" maxlength="14">`;
+  h += `</details><details class="card"><summary>EQ graphique du master (15 bandes)</summary>
+    <div style="margin:8px 0">${tbtn("geq.on","EQ graphique activé")}</div>`;
+  for (let b=0;b<15;b++) h += slider(`geq${b}`, "Bande "+(b+1)+(b===0?" (grave)":b===14?" (aigu)":""));
+  h += `</details>`;
+  $("#v-ms").innerHTML = h;
+}
+function openSheet(s){
+  sheetStrip=s;
+  const k = x => `s${s}.${x}`;
+  let h = `<div class="top"><button class="nolock" id="shClose">← Retour</button><h2>${stripLabel(s)} · ${esc(NAMES[s])}</h2></div>
+  <div class="card"><h3 style="margin-top:0">Nom sur la console</h3>
+    <div class="row"><input type="text" id="nmIn" maxlength="8" value="${esc(NAMES[s])}"><button class="ctl" id="nmGo" style="min-width:96px">Envoyer</button></div>
+    <p class="note">8 lettres max, sans accents.</p></div>
+  <div class="card">${slider(k("send"+mix), mix===0?"Volume (main)":"Dans le retour "+esc(mixName(mix)))}
+    ${slider(k("pan"),"Pan")}
+    <div class="grid3" style="margin-top:10px">${tbtn(k("mute"),"Mute","m")}${tbtn(k("solo"),"Solo","s")}${tbtn(k("phase"),"Phase Ø")}</div>
+    <button class="ctl" data-center="${s}" style="width:100%;margin-top:10px">Pan au centre</button></div>
+  <div class="card"><h3 style="margin-top:0">EQ</h3>
+    <div class="grid2">${tbtn(k("eqOff"),"EQ activé","",true)}<button class="ctl" data-flat="${s}">EQ à plat</button></div>
+    ${slider(k("eqHi"),"Aigus")}
+    ${slider(k("eqMid"),"Médiums")}
+    ${slider(k("eqMidF"),"Fréquence des médiums")}
+    ${slider(k("eqLo"),"Graves")}
+    ${slider(k("lowCut"),"Coupe-bas (low cut)")}</div>
+  <div class="card"><h3 style="margin-top:0">Effets</h3>
+    ${slider(k("fx1"),"Envoi vers effet 1 ("+esc(FX1[V["fx0.effect"]]||"")+")")}
+    ${slider(k("fx2"),"Envoi vers effet 2 ("+esc(FX2[V["fx1.effect"]]||"")+")")}</div>
+  <div class="card"><h3 style="margin-top:0">Dans les retours</h3>`;
+  for (let m=1;m<7;m++) h += slider(k("send"+m), esc(mixName(m)));
+  h += `</div><p class="note">Le gain et le compresseur sont des boutons physiques : ils ne passent pas par Bluetooth (même pas avec l'app iPad).</p>`;
+  const sh=$("#sheet"); sh.innerHTML=h; sh.classList.add("open"); sh.scrollTop=0;
+  paintAll(sh);
+  $("#shClose").onclick=closeSheet;
+  $("#nmGo").onclick=()=>{ if(!locked) renameStrip(s, $("#nmIn").value); };
+}
+function closeSheet(){ $("#sheet").classList.remove("open"); $("#sheet").innerHTML=""; sheetStrip=null; renderChannels(); paintAll(document); }
+function paintAll(root){
+  root.querySelectorAll(".sl[data-k]").forEach(paintSlider);
+  root.querySelectorAll("[data-t]").forEach(b=>b.classList.toggle("on", b.dataset.inv ? !V[b.dataset.t] : !!V[b.dataset.t]));
+}
+function renderAll(){
+  renderMixes(); renderChannels(); renderFx(); renderScenes(); renderMaster();
+  if (sheetStrip!=null) openSheet(sheetStrip);
+  paintAll(document);
+}
+function show(v){
+  view=v;
+  for (const id of ["ch","fx","sc","ms","lg"]) $("#v-"+id).classList.toggle("hide", id!==v);
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("sel", b.dataset.v===v));
+  window.scrollTo(0,0);
+}
+const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* --- glisser les sliders : il faut glisser de côté ; un toucher ne change rien --- */
+let drag=null;
+document.addEventListener("pointerdown", e=>{
+  const el=e.target.closest(".sl[data-k]"); if(!el || locked) return;
+  drag={el, k:el.dataset.k, x:e.clientX, y:e.clientY, v0:V[el.dataset.k], on:false, id:e.pointerId};
+});
+document.addEventListener("pointermove", e=>{
+  if(!drag || e.pointerId!==drag.id) return;
+  const dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  if(!drag.on){
+    if(Math.abs(dy)>12 && Math.abs(dy)>Math.abs(dx)){ drag=null; return; }   // c'est un défilement
+    if(Math.abs(dx)<8) return;
+    drag.on=true; drag.el.classList.add("drag"); try{drag.el.setPointerCapture(e.pointerId);}catch(_){}
+  }
+  const o=P[drag.k], w=drag.el.clientWidth;
+  setVal(drag.k, drag.v0 + dx/w*(o.max-o.min));
+  e.preventDefault();
+}, {passive:false});
+const endDrag=()=>{ if(drag){ drag.el.classList.remove("drag"); drag=null; } };
+document.addEventListener("pointerup", endDrag);
+document.addEventListener("pointercancel", endDrag);
+
+/* --- clics --- */
+let holdT=null;
+document.addEventListener("click", e=>{
+  const t=e.target.closest("button,[data-mix]"); if(!t) return;
+  if (t.dataset.v){ show(t.dataset.v); return; }
+  if (t.dataset.mix!=null){ mix=+t.dataset.mix; renderMixes(); renderChannels(); renderFx(); if(sheetStrip!=null) openSheet(sheetStrip); paintAll(document); meterSelect(); return; }
+  if (t.dataset.open!=null){ openSheet(+t.dataset.open); return; }
+  if (t.dataset.goto){ show(t.dataset.goto); return; }
+  if (locked) return;
+  if (t.dataset.t){ toggle(t.dataset.t); return; }
+  if (t.dataset.step){ const o=P[t.dataset.step]; const st = o.max>200 ? Math.ceil(o.max/100) : 1; setVal(t.dataset.step, V[t.dataset.step] + st*(+t.dataset.d)); return; }
+  if (t.dataset.center!=null){ setVal(`s${t.dataset.center}.pan`, 50); return; }
+  if (t.dataset.flat!=null){ const s=t.dataset.flat; for (const x of ["eqHi","eqMid","eqLo"]) setVal(`s${s}.${x}`, 30); return; }
+  if (t.dataset.scn){
+    const n=+t.dataset.scn;
+    if (sceneSave){
+      if (!confirm("Sauvegarder le son actuel dans la scène "+n+" ?\n(L'ancienne scène "+n+" sera remplacée.)")) return;
+      pressButton(9); pressButton(10+n); sceneSave=false; renderScenes();
+      if (demo) toast("(démo) Scène "+n+" sauvegardée");
+    } else {
+      pressButton(10); pressButton(10+n);
+      if (demo){ activeScene=n; renderScenes(); toast("(démo) Scène "+n+" rappelée"); }
+    }
+    return;
+  }
+});
+document.addEventListener("change", e=>{
+  const s=e.target.closest("select[data-sel]"); if(s){ setVal(s.dataset.sel, +s.value); renderChannels(); paintAll(document); return; }
+  const mn=e.target.closest("[data-mixname]"); if(mn){ mixNames[+mn.dataset.mixname]=mn.value.trim()||MIXDEF[+mn.dataset.mixname]; store.set("mixNames", mixNames); renderMixes(); renderChannels(); paintAll(document); }
+});
+$("#conn").onclick=connect;
+$("#lock").onclick=()=>{ locked=!locked; document.body.classList.toggle("locked",locked); $("#lock").classList.toggle("on",locked); $("#lock").textContent=locked?"🔒":"🔓"; toast(locked?"Verrouillé : rien ne bouge par accident.":"Déverrouillé."); };
+$("#scR").onclick=()=>{ sceneSave=false; renderScenes(); };
+$("#scS").onclick=()=>{ sceneSave=true; renderScenes(); };
+$("#lgDump").onclick=()=>sendSys([0xf0,0x52,0x00,0x00,0x2b,0xf7]);
+$("#lgClear").onclick=()=>{ LOG.length=0; $("#log").innerHTML=""; };
+$("#lgMeters").onclick=e=>{ logMeters=!logMeters; e.target.textContent="VU dans le journal : "+(logMeters?"oui":"non"); };
+$("#lgCopy").onclick=async()=>{ const t=LOG.map(l=>l.t+" "+l.c.toUpperCase()+" "+l.m).join("\n"); try{ await navigator.clipboard.writeText(t); toast("Journal copié ✅"); }catch(e){ prompt("Copie ce texte :", t); } };
+$("#rawSend").onclick=()=>{
+  const b=$("#raw").value.trim().split(/[\s,]+/).filter(Boolean).map(x=>parseInt(x,16));
+  if(!b.length || b.some(x=>isNaN(x)||x<0||x>255)){ toast("Format : octets en hexa, ex. B0 30 01"); return; }
+  if(b[0]===0xf0) sendSys(b); else if((b[0]&0xf0)===0xb0 && b.length===3){ pendingCC.delete((b[0]<<8)|b[1]); sendCC(b[0],b[1],b[2]); } else toast("Seulement un CC (Bx cc vv) ou un SysEx (F0 … F7).");
+};
+
+/* --- journal --- */
+const LOG=[];
+function log(c, m){
+  const d=new Date(), t=d.toTimeString().slice(0,8)+"."+String(d.getMilliseconds()).padStart(3,"0");
+  LOG.push({t,c,m}); if (LOG.length>400) LOG.shift();
+  const el=$("#log"); if(!el) return;
+  const line=document.createElement("div"); line.className=c; line.textContent=t+"  "+(c==="tx"?"→ ":c==="rx"?"← ":"")+m;
+  el.appendChild(line); while(el.childNodes.length>400) el.removeChild(el.firstChild);
+  if (view==="lg") el.scrollTop=el.scrollHeight;
+}
+let toastT=null;
+function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"), 4000); }
+
+/* --- écran allumé --- */
+let wl=null;
+async function wake(){ try{ wl = await navigator.wakeLock.request("screen"); }catch(e){} }
+document.addEventListener("visibilitychange", ()=>{ if(document.visibilityState==="visible" && connected) wake(); });
+
+/* --- mode démo (sans console) --- */
+let demoTimer=null;
+function startDemo(){
+  demo=true; connected=true; setConn("wait","Mode démo (pas de console)");
+  for (let s=0;s<NSTRIP;s++){ V[`s${s}.send0`]=82; for(let m=1;m<7;m++) V[`s${s}.send${m}`]=60; }
+  V["master.level"]=82; for(let i=0;i<6;i++) V[`mon${i}`]=82; V["fx0.send0"]=82; V["fx1.send0"]=82;
+  renderAll(); hint();
+  demoTimer=setInterval(()=>{ for(let i=7;i<27;i++) meter[i]=Math.max(0,Math.min(10,(meter[i]&15)+Math.round(Math.random()*4-2)))|0x10; meter[55]=meter[7]; meter[56]=meter[8]; drawMeters(); }, 120);
+  toast("Mode démo : rien n'est envoyé à la console.");
+}
+if (location.hash==="#demo") startDemo();
+if (!navigator.bluetooth) setConn("","Bluetooth absent : ouvrir dans Chrome Android (ou toucher pour la démo)");
+
+renderAll(); show("ch");
+</script>
+</body>
+</html>
