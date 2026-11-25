@@ -494,6 +494,7 @@ function paintSlider(el){
   sp[1].textContent = FMT[o.fmt](v);
 }
 function refresh(k){
+  if (/fx|mute/.test(k)) fxCheck();
   document.querySelectorAll(`[data-k="${k}"]`).forEach(paintSlider);
   document.querySelectorAll(`[data-t="${k}"]`).forEach(b=>b.classList.toggle("on", b.dataset.inv ? !V[k] : !!V[k]));
   if (k.startsWith("fx") && k.endsWith(".effect")) document.querySelectorAll(`select[data-sel="${k}"]`).forEach(s=>s.value=V[k]);
@@ -521,8 +522,24 @@ function renderChannels(){
   }
   $("#chlist").innerHTML = h;
 }
+/* --- « Pourquoi j'entends pas l'effet ? » : les 3 robinets de l'effet --- */
+function fxCheck(){
+  const el=$("#fxDiag"); if(!el) return;
+  let h=`<h2>Pourquoi j'entends pas l'effet ?</h2><p class="note">Le son passe par 3 robinets : <b>l'envoi</b> d'un canal → <b>l'effet</b> (pas en mute) → <b>le retour</b> dans ${mix===0?"le main":"le retour "+esc(mixName(mix))}. Un seul fermé = pas d'effet.</p>`;
+  for (let i=0;i<2;i++){
+    const senders=[]; for(let s=0;s<NSTRIP;s++) if(V[`s${s}.fx${i+1}`]>0 && !V[`s${s}.mute`]) senders.push(NAMES[s]);
+    const muted=!!V[`fx${i}.mute`], ret=V[`fx${i}.send${mix}`];
+    const ok=x=>x?"✅":"❌";
+    h+=`<h3>Effet ${i+1} (${esc((i?FX2:FX1)[V[`fx${i}.effect`]]||"?")})</h3>
+      <div>${ok(senders.length)} Envoi : ${senders.length? esc(senders.join(", ")) : "<b>aucun canal n'envoie dans l'effet</b>. Canaux → touche le nom → Effets → monte « Envoi vers effet "+(i+1)+" »."}</div>
+      <div>${ok(!muted)} Effet ${muted?"<b>en mute</b>":"pas en mute"}</div>
+      <div>${ok(ret>0)} Retour : ${ret>0?FMT.fader(ret):"<b>fermé (−∞)</b>"}</div>
+      ${(muted||ret===0)?`<button class="ctl" data-fxfix="${i}" style="width:100%;margin-top:8px">Ouvrir l'effet ${i+1} (enlever le mute, retour à 0 dB)</button>`:""}`;
+  }
+  el.innerHTML=h;
+}
 function renderFx(){
-  let h="";
+  let h=`<div class="card" id="fxDiag"></div>`;
   for (let i=0;i<2;i++){
     const list = i?FX2:FX1;
     h += `<div class="card"><h2>Effet ${i+1}</h2>
@@ -537,6 +554,7 @@ function renderFx(){
   h += `<p class="note">Pour envoyer un canal dans l'effet : Canaux → touche le nom du canal → « Effets ».</p>`;
   $("#v-fx").innerHTML=h;
   document.querySelectorAll("select[data-sel]").forEach(s=>s.value=V[s.dataset.sel]);
+  fxCheck();
 }
 function renderScenes(){
   $("#scGrid").innerHTML = [1,2,3,4,5,6,7,8,9].map(n=>`<button class="scn ctl${activeScene===n?" act":""}" data-scn="${n}">${n}</button>`).join("");
@@ -640,6 +658,7 @@ document.addEventListener("click", e=>{
   if (locked) return;
   if (t.dataset.t){ toggle(t.dataset.t); return; }
   if (t.dataset.step){ const o=P[t.dataset.step]; const st = o.max>200 ? Math.ceil(o.max/100) : 1; setVal(t.dataset.step, V[t.dataset.step] + st*(+t.dataset.d)); return; }
+  if (t.dataset.fxfix!=null){ const i=t.dataset.fxfix; setVal(`fx${i}.mute`,0); if(!V[`fx${i}.send${mix}`]) setVal(`fx${i}.send${mix}`,82); fxCheck(); return; }
   if (t.dataset.center!=null){ setVal(`s${t.dataset.center}.pan`, 50); return; }
   if (t.dataset.flat!=null){ const s=t.dataset.flat; for (const x of ["eqHi","eqMid","eqLo"]) setVal(`s${s}.${x}`, 30); return; }
   if (t.dataset.scn){
